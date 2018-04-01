@@ -474,50 +474,56 @@ class PrimaryTextTransformer {
       parentNode = wrapper;
     }
 
-    const container = divElem.querySelector('.player-timedtext-text-container');
-    if (!container) return;
+    const containers = divElem.querySelectorAll('.player-timedtext-text-container');
+    if (!containers) return;
+    let lowest = 0;
+    [].forEach.call(containers, (container) => {  
+      const textContent = container.textContent;
+      if (this.lastScaledPrimaryTextContent === textContent && !forced) return;
+      this.lastScaledPrimaryTextContent = textContent;
 
-    const textContent = container.textContent;
-    if (this.lastScaledPrimaryTextContent === textContent && !forced) return;
-    this.lastScaledPrimaryTextContent = textContent;
+      const style = parentNode.querySelector('style');
+      if (!style) return;
 
-    const style = parentNode.querySelector('style');
-    if (!style) return;
+      const textSpan = container.querySelector('span');
+      if (!textSpan) return;
 
-    const textSpan = container.querySelector('span');
-    if (!textSpan) return;
+      const fontSize = parseInt(textSpan.style.fontSize);
+      if (!fontSize) return;
 
-    const fontSize = parseInt(textSpan.style.fontSize);
-    if (!fontSize) return;
+      const options = gRenderOptions;
+      const opacity = options.primaryTextOpacity;
+      const scale = options.primaryTextScale;
+      const newFontSize = (fontSize * scale);
+      const styleText = `.player-timedtext-text-container span {
+          font-size: ${newFontSize}px !important;
+          opacity: ${opacity};
+        }`;
+      style.textContent = styleText;
 
-    const options = gRenderOptions;
-    const opacity = options.primaryTextOpacity;
-    const scale = options.primaryTextScale;
-    const newFontSize = (fontSize * scale);
-    const styleText = `.player-timedtext-text-container span {
-        font-size: ${newFontSize}px !important;
-        opacity: ${opacity};
-      }`;
-    style.textContent = styleText;
+      const rect = divElem.getBoundingClientRect();
+      const [ extentWidth, extentHeight ] = [ rect.width, rect.height ];
 
-    const rect = divElem.getBoundingClientRect();
-    const [ extentWidth, extentHeight ] = [ rect.width, rect.height ];
+      const lowerBaseline = extentHeight * options.lowerBaselinePos;
+      const { left, top, width, height } = container.getBoundingClientRect();
+      const newLeft = ((extentWidth * 0.5) - (width * 0.5));
+      let topMargin = 0;
 
-    const lowerBaseline = extentHeight * options.lowerBaselinePos;
-    const { left, top, width, height } = container.getBoundingClientRect();
-    const newLeft = ((extentWidth * 0.5) - (width * 0.5));
-    let newTop = (lowerBaseline - height);
+      if (top > lowest) {
+        topMargin = lowerBaseline - top - height;
+        lowest = top
+      }
+      // FIXME: dirty transform & magic offets
+      // we out run the official player, so the primary text-based subtitles
+      // does not move automatically when the navs are active
+      topMargin += (controlsActive ? -120 : 0);
 
-    // FIXME: dirty transform & magic offets
-    // we out run the official player, so the primary text-based subtitles
-    // does not move automatically when the navs are active
-    newTop += (controlsActive ? -120 : 0);
-
-    style.textContent = styleText + '\n' + `
-      .player-timedtext-text-container {
-        top: ${newTop}px !important;
-        left: ${newLeft}px !important;
-      }`;
+      if (topMargin != 0)
+        style.textContent = styleText + '\n' + `
+          .player-timedtext-text-container {
+            margin-top: ${topMargin}px !important;
+          }`;
+    });
   }
 }
 
